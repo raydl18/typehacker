@@ -3,11 +3,9 @@
 import type { PassageCategory, PassageLength } from "@/app/api/passage/route";
 
 const CATEGORIES: { value: PassageCategory; label: string }[] = [
-  { value: "prose", label: "prose" },
   { value: "news", label: "news" },
+  { value: "learn", label: "learn" },
   { value: "code", label: "code" },
-  { value: "quotes", label: "quotes" },
-  { value: "scifi", label: "sci-fi" },
 ];
 
 const LENGTHS: { value: PassageLength; label: string }[] = [

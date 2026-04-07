@@ -8,7 +8,7 @@ import OptionsBar from "./OptionsBar";
 
 export default function TypingEngine() {
   const {
-    passage, cursorIndex, keystrokes, status, stats,
+    passage, cursorIndex, keystrokes, errorPositions, status, stats,
     category, length, loadingNext,
     recordKeystroke, resetSession, setCategory, setLength,
   } = useTypingStore();
@@ -58,6 +58,7 @@ export default function TypingEngine() {
           passage={passage}
           cursorIndex={cursorIndex}
           keystrokes={keystrokes}
+          errorPositions={errorPositions}
         />
 
         {status === "finished" && stats && (

@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-export type PassageCategory = "news" | "prose" | "code" | "quotes" | "scifi";
+export type PassageCategory = "news" | "learn" | "code";
 export type PassageLength = "short" | "medium" | "long";
+
+function sanitize(text: string): string {
+  return text
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")   // smart single quotes
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')    // smart double quotes
+    .replace(/[\u2013\u2014]/g, "-")                // en/em dash
+    .replace(/\u2026/g, "...")                       // ellipsis
+    .replace(/[^\x20-\x7E\n]/g, "");                // strip anything else non-ASCII
+}
 
 const LENGTH_CHARS: Record<PassageLength, number> = {
   short: 120,
@@ -44,19 +53,15 @@ async function fetchNewsPassage(length: PassageLength): Promise<string> {
     if ((result + s).length > target && result.length > 0) break;
     result += s;
   }
-  return result.trim() || body.slice(0, target).trim();
+  return sanitize(result.trim() || body.slice(0, target).trim());
 }
 
 // --- Featherless / AI generated ---
 const AI_PROMPTS: Record<Exclude<PassageCategory, "news">, string> = {
-  prose:
-    "Write a typing practice passage about nature, history, science, or everyday life.",
+  learn:
+    "Generate a typing practice passage that teaches something real and useful about a programming language, framework, tool, or computer science concept. It should read like a well-written documentation excerpt or textbook explanation — clear, factual, and educational. Pick a specific topic each time such as how React state works, what a hash table is, how Git branching works, or what TCP/IP does. Do not use bullet points or headers, only plain paragraphs.",
   code:
     "Write a short code snippet or explain a programming concept in plain English suitable for typing practice. Mix real code and explanation.",
-  quotes:
-    "Write an original inspirational or philosophical statement in the style of a famous thinker.",
-  scifi:
-    "Write a typing practice passage in the style of science fiction — futuristic setting, technology, space, or AI.",
 };
 
 async function fetchAIPassage(
@@ -90,13 +95,13 @@ async function fetchAIPassage(
 
   const text = response.choices[0]?.message?.content?.trim();
   if (!text) throw new Error("Empty AI response");
-  return text;
+  return sanitize(text);
 }
 
 // --- Route handler ---
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const category = (searchParams.get("category") ?? "prose") as PassageCategory;
+  const category = (searchParams.get("category") ?? "learn") as PassageCategory;
   const length = (searchParams.get("length") ?? "medium") as PassageLength;
 
   try {
