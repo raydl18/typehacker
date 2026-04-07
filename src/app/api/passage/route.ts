@@ -10,6 +10,7 @@ function sanitize(text: string): string {
     .replace(/[\u201C\u201D\u201E\u201F]/g, '"')    // smart double quotes
     .replace(/[\u2013\u2014]/g, "-")                // en/em dash
     .replace(/\u2026/g, "...")                       // ellipsis
+    .replace(/`/g, "'")                              // backticks → apostrophe
     .replace(/[^\x20-\x7E\n]/g, "");                // strip anything else non-ASCII
 }
 
@@ -59,9 +60,9 @@ async function fetchNewsPassage(length: PassageLength): Promise<string> {
 // --- Featherless / AI generated ---
 const AI_PROMPTS: Record<Exclude<PassageCategory, "news">, string> = {
   learn:
-    "Generate a typing practice passage that teaches something real and useful about a programming language, framework, tool, or computer science concept. It should read like a well-written documentation excerpt or textbook explanation — clear, factual, and educational. Pick a specific topic each time such as how React state works, what a hash table is, how Git branching works, or what TCP/IP does. Do not use bullet points or headers, only plain paragraphs.",
+    "Generate a typing practice passage that teaches something real and useful about a programming language, framework, tool, or computer science concept. It should read like a well-written documentation excerpt or textbook explanation — clear, factual, and educational. Pick a specific topic each time such as how React state works, what a hash table is, how Git branching works, or what TCP/IP does. Do not use bullet points or headers, only plain paragraphs. Do not use backticks — write code identifiers inline as plain words.",
   code:
-    "Write a short code snippet or explain a programming concept in plain English suitable for typing practice. Mix real code and explanation.",
+    "Write a typing practice passage that mixes a real code snippet with a plain English explanation of what it does. Do not use backticks — write strings using double quotes or single quotes.",
 };
 
 async function fetchAIPassage(
