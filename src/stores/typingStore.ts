@@ -28,15 +28,15 @@ interface TypingState {
   getStats: () => SessionStats | null;
 }
 
-async function fetchPassage(category: PassageCategory, length: PassageLength): Promise<string> {
+// Tracks the most recent load so stale responses are ignored
+let currentFetchId = 0;
+
+async function fetchPassageJSON(category: PassageCategory, length: PassageLength): Promise<string> {
   const res = await fetch(`/api/passage?category=${category}&length=${length}`);
   if (!res.ok) throw new Error("Failed to fetch passage");
   const data = await res.json();
   return data.text;
 }
-
-// Tracks the most recent fetch so stale responses are ignored
-let currentFetchId = 0;
 
 function prefetchNext(
   set: (partial: Partial<TypingState>) => void,
@@ -45,7 +45,7 @@ function prefetchNext(
   const { category, length, loadingNext } = get();
   if (loadingNext) return;
   set({ loadingNext: true });
-  fetchPassage(category, length)
+  fetchPassageJSON(category, length)
     .then((text) => set({ nextPassage: text, loadingNext: false }))
     .catch(() => set({ loadingNext: false }));
 }
@@ -55,17 +55,40 @@ function loadPassage(
   get: () => TypingState
 ) {
   const fetchId = ++currentFetchId;
-  set({ passage: "", loadingNext: true });
   const { category, length } = get();
-  fetchPassage(category, length)
-    .then((text) => {
-      if (fetchId !== currentFetchId) return; // a newer fetch superseded this one
-      set({ passage: text, loadingNext: false });
-      prefetchNext(set, get);
+  set({ passage: "", loadingNext: true });
+
+  // News uses JSON (no streaming needed — it's instant text slicing)
+  if (category === "news") {
+    fetchPassageJSON(category, length)
+      .then((text) => {
+        if (fetchId !== currentFetchId) return;
+        set({ passage: text, loadingNext: false });
+        prefetchNext(set, get);
+      })
+      .catch(() => { if (fetchId === currentFetchId) set({ loadingNext: false }); });
+    return;
+  }
+
+  // AI categories stream tokens so text appears as it generates
+  fetch(`/api/passage?category=${category}&length=${length}&stream=true`)
+    .then(async (res) => {
+      if (fetchId !== currentFetchId) return;
+      if (!res.ok || !res.body) throw new Error("Stream failed");
+
+      set({ loadingNext: false });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (fetchId !== currentFetchId) { reader.cancel(); return; }
+        if (done) { prefetchNext(set, get); break; }
+        const chunk = decoder.decode(value, { stream: true });
+        set({ passage: get().passage + chunk });
+      }
     })
-    .catch(() => {
-      if (fetchId === currentFetchId) set({ loadingNext: false });
-    });
+    .catch(() => { if (fetchId === currentFetchId) set({ loadingNext: false }); });
 }
 
 const EMPTY_STATE = {
